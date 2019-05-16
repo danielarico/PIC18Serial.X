@@ -8,6 +8,7 @@
 #include <xc.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include "config.h"
 
 //*************************************************
@@ -16,16 +17,22 @@
 bool timer0_flag = false;
 const unsigned uint16_t timer0_start = 3036; // For prescaler 1:16
 const uint8_t array_size = 20;
-const char hello_world[array_size] = "Hello World";
-char * data = &hello_world[0];
+char data[array_size] = "Hello world\n\0";
+char data2[array_size] = "Hola mundo\n\0";
+char buffer[array_size];
+char * ptr_data = data;
+char * ptr_pos;
+uint8_t pos = 0;
 
 //*************************************************
 // Functions' declaration
 //*************************************************
-void serialConfig ();
-void init_timer0(void);
 void interrupt high_priority isr_high(void);
 void interrupt low_priority isr_low(void);
+void serial_config ();
+void init_timer0(void);
+void send(char * ptr_array);
+void send_next(char * ptr);
 
 //*************************************************
 // Main
@@ -41,12 +48,9 @@ void main(void)
     // Ports configuration --------------
     TRISAbits.TRISA0 = 0; // Output
     LATAbits.LATA0 = 0; // Initialize in 0
-    
-    *data = 'b';
-    
-    serialConfig();
-    
-    PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
+
+    serial_config();
+    send(data);
     
     while(1){
         
@@ -58,6 +62,21 @@ void main(void)
 //*************************************************
 // Functions' definition
 //*************************************************
+
+void interrupt high_priority isr_high(void) // Interrupt service routine high priority
+{
+    if (INTCONbits.TMR0IF && INTCONbits.TMR0IE) // Timer0 interruption
+    {
+        INTCONbits.TMR0IF = 0;
+        TMR0 = timer0_start;
+        timer0_flag = true;
+    }
+    
+    if (PIR1bits.TXIF && PIE1bits.TXIE) // Transmission interruption
+    {
+        send_next(buffer); 
+    }
+}
 
 void init_timer0 (void)
 {
@@ -73,30 +92,7 @@ void init_timer0 (void)
     INTCONbits.TMR0IE = 1; // Enable timer0 interrupts
 }
 
-void interrupt high_priority isr_high(void) // Interrupt service routine high priority
-{
-    if (INTCONbits.TMR0IF && INTCONbits.TMR0IE) // Timer0 interruption
-    {
-        INTCONbits.TMR0IF = 0;
-        TMR0 = timer0_start;
-        timer0_flag = true;
-    }
-    
-    if (PIR1bits.TXIF && PIE1bits.TXIE) // Transmission interruption
-    {
-        if(*data == '\0') {
-            data = &hello_world[0];
-            PIE1bits.TXIE = 0; // Disable TX interruption
-        }
-        else {
-            TXREG = *data;
-            data++;
-        }
-        
-    }
-}
-
-void serialConfig ()
+void serial_config ()
 {
     /* To set up an Asynchronous Transmission:
      * 
@@ -137,4 +133,23 @@ void serialConfig ()
     TXSTAbits.TXEN = 1; // Transmit enabled
     
     IPR1bits.TXIP = 1; // High priority
+}
+
+void send (char * ptr_array)
+{
+    strcpy(buffer, ptr_array);
+    PIE1bits.TXIE = 0;
+}
+
+void send_next(char * ptr_pos)
+{  
+    if(*ptr_pos == '\0') 
+    {
+        PIE1bits.TXIE = 0; // Disable TX interruption
+    }
+    else 
+    {
+        TXREG = *ptr_pos;
+        ptr_pos++;
+    }
 }
