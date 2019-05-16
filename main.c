@@ -7,18 +7,22 @@
 
 #include <xc.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "config.h"
 
 //*************************************************
 // Global variables declaration
 //*************************************************
 bool timer0_flag = false;
-const unsigned int timer0_start = 3036; // For prescaler 1:16
+const unsigned uint16_t timer0_start = 3036; // For prescaler 1:16
+const uint8_t array_size = 20;
+const char hello_world[array_size] = "Hello World";
+char * data = &hello_world[0];
 
 //*************************************************
 // Functions' declaration
 //*************************************************
-void SerialConfig ();
+void serialConfig ();
 void init_timer0(void);
 void interrupt high_priority isr_high(void);
 void interrupt low_priority isr_low(void);
@@ -38,10 +42,16 @@ void main(void)
     TRISAbits.TRISA0 = 0; // Output
     LATAbits.LATA0 = 0; // Initialize in 0
     
-    SerialConfig();
+    *data = 'b';
     
-    TXREG = 0;
- 
+    serialConfig();
+    
+    PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
+    
+    while(1){
+        
+    }
+    
     return;
 }
 
@@ -65,15 +75,28 @@ void init_timer0 (void)
 
 void interrupt high_priority isr_high(void) // Interrupt service routine high priority
 {
-    if (INTCONbits.TMR0IF && INTCONbits.TMR0IE)
+    if (INTCONbits.TMR0IF && INTCONbits.TMR0IE) // Timer0 interruption
     {
         INTCONbits.TMR0IF = 0;
         TMR0 = timer0_start;
         timer0_flag = true;
     }
+    
+    if (PIR1bits.TXIF && PIE1bits.TXIE) // Transmission interruption
+    {
+        if(*data == '\0') {
+            data = &hello_world[0];
+            PIE1bits.TXIE = 0; // Disable TX interruption
+        }
+        else {
+            TXREG = *data;
+            data++;
+        }
+        
+    }
 }
 
-void SerialConfig ()
+void serialConfig ()
 {
     /* To set up an Asynchronous Transmission:
      * 
@@ -105,12 +128,13 @@ void SerialConfig ()
     TXSTAbits.SYNC = 0; // EUSART Mode: Asynchronous mode
     RCSTAbits.SPEN = 1; // Serial port enabled
     // 3
-    BAUDCONbits.TXCKP = 1; // TX Data is inverted
+    BAUDCONbits.TXCKP = 0; // TX Data is inverted
     // 4
-    PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
+    PIE1bits.TXIE = 0; // Disables EUSART Transmit Interrupt
     // 5
     TXSTAbits.TX9 = 0; // Selects 8-bit transmission
     // 6
     TXSTAbits.TXEN = 1; // Transmit enabled
-
+    
+    IPR1bits.TXIP = 1; // High priority
 }
