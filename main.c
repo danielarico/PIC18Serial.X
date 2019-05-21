@@ -1,3 +1,4 @@
+
 /*
  * File:   main.c
  * Author: daniela
@@ -12,6 +13,12 @@
 #include "config.h"
 
 //*************************************************
+// Macros definition
+//*************************************************
+#define LED1 LATAbits.LATA0
+
+
+//*************************************************
 // Global variables declaration
 //*************************************************
 bool timer0_flag = false;
@@ -19,10 +26,12 @@ bool tx_finish = false;
 bool rx_finish = false;
 const uint16_t timer0_start = 3036; // For prescaler 1:16
 const uint8_t array_size = 20;
-char rx_buffer[array_size] = {};
+char rx_buffer[array_size];
 char rx_char = '\0';
+char rx_data = '\0';
 char * ptr_rx = rx_buffer;
 char * ptr_tx;
+
 
 //*************************************************
 // Functions' declaration
@@ -34,6 +43,7 @@ void init_timer0(void);
 void send(char * ptr_array);
 void send_next();
 void receive();
+void clean (char * ptr);
 
 //*************************************************
 // Main
@@ -48,7 +58,7 @@ void main(void)
     
 	// Ports configuration --------------
 	TRISAbits.TRISA0 = 0; // Output
-	LATAbits.LATA0 = 0; // Initialize in 0
+	LED1 = 0; // Initialize in 0
 
 	serial_config();
     
@@ -58,12 +68,20 @@ void main(void)
     
 	send(data);
 	while(!tx_finish) {}
-
 	send(arr);
 	while(!tx_finish) {}
     */
 
-	while(1) {}
+	while(1) 
+    {
+        LED1 = 1;
+        /*
+        if(rx_finish)
+        {
+            rx_finish = 0;
+            send(rx_data);
+        }*/
+    }
     
 	return;
 }
@@ -134,10 +152,8 @@ void serial_config ()
 
 void send (char * ptr_array)
 {
+    ptr_tx = ptr_array;
 	tx_finish = 0; // End of transmission flag
-	char add[2] = "\n\0";
-	strcat(ptr_array, add);
-	ptr_tx = ptr_array;
 	PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
 }
 
@@ -154,25 +170,32 @@ void send_next()
     	ptr_tx ++;
 	}
 }
-/*
-void receive ()
-{
-    if(rx_char == '\0')
-	{
-    	rx_finish = 1; // Flag
-        ptr_rx = rx_buffer; // Re initialize ptr to rx_buffer
-        send (rx_buffer); // Echo
-	}
-    else 
-    {
-        * ptr_rx = rx_char;
-        ptr_rx ++;
-        PIR1bits.RCIF = 0; // Clearing flag
-    } 
-}*/
 
 void receive ()
 {
-    rx_buffer[0] = rx_char;
-    send(rx_buffer);
+    if(rx_char == '\0')
+    {
+        rx_finish = 1; // End of reception flag
+        /* 
+        rx_data = rx_buffer; // Store buffer data
+        ptr_rx = rx_buffer; // Re-initialize pointer
+        clean(rx_buffer);
+        */
+    }
+    else
+    {
+        TXREG = rx_char;
+        /*
+        *ptr_rx = rx_char;
+        ptr_rx ++;
+        */
+    }
+}
+
+void clean (char * ptr)
+{
+    for (int i=0; i<sizeof(*ptr); i++)
+    {
+        *ptr = '\0';
+    }
 }
