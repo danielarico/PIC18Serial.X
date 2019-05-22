@@ -42,7 +42,7 @@ void serial_config ();
 void init_timer0(void);
 void send(char * ptr_array);
 void send_next();
-void receive();
+void received();
 void clean (char * ptr);
 
 //*************************************************
@@ -75,12 +75,12 @@ void main(void)
 	while(1) 
     {
         LED1 = 1;
-        /*
+        
         if(rx_finish)
         {
             rx_finish = 0;
             send(rx_data);
-        }*/
+        }
     }
     
 	return;
@@ -106,8 +106,19 @@ void interrupt high_priority isr_high(void) // Interrupt service routine high pr
     
 	if (PIR1bits.RCIF && PIE1bits.RCIE) // Transmission interruption
 	{
+        PIR1bits.RCIF = 0;
         rx_char = RCREG;
-        receive();
+        
+        if(rx_char != '\0')
+        {
+            *ptr_rx = rx_char;
+            ptr_rx ++;
+        }
+        else
+        {
+            received();
+        }
+
 	}
 }
 
@@ -152,6 +163,7 @@ void serial_config ()
 
 void send (char * ptr_array)
 {
+    clean(ptr_tx);
     ptr_tx = ptr_array;
 	tx_finish = 0; // End of transmission flag
 	PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
@@ -171,25 +183,12 @@ void send_next()
 	}
 }
 
-void receive ()
+void received ()
 {
-    if(rx_char == '\0')
-    {
-        rx_finish = 1; // End of reception flag
-        /* 
-        rx_data = rx_buffer; // Store buffer data
-        ptr_rx = rx_buffer; // Re-initialize pointer
-        clean(rx_buffer);
-        */
-    }
-    else
-    {
-        TXREG = rx_char;
-        /*
-        *ptr_rx = rx_char;
-        ptr_rx ++;
-        */
-    }
+    rx_finish = 1; // End of reception flag
+    strcpy(rx_data, rx_buffer);
+    ptr_rx = rx_buffer; // Re-initialize pointer
+    clean(rx_buffer);
 }
 
 void clean (char * ptr)
