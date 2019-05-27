@@ -15,8 +15,8 @@
 //*************************************************
 // Macros definition
 //*************************************************
-#define LED1 LATAbits.LATA0
-
+#define LED1 LATBbits.LATB0
+#define LED2 LATBbits.LATB1
 
 //*************************************************
 // Global variables declaration
@@ -26,6 +26,7 @@ bool tx_finish = false;
 bool rx_finish = false;
 const uint16_t timer0_start = 3036; // For prescaler 1:16
 const uint8_t array_size = 20;
+//const uint8_t buffer_size = 50;
 char rx_buffer[array_size];
 char rx_char = '\0';
 char rx_data = '\0';
@@ -38,8 +39,14 @@ char * ptr_tx;
 //*************************************************
 void interrupt high_priority isr_high(void);
 void interrupt low_priority isr_low(void);
-void serial_config ();
-void init_timer0(void);
+
+void clock_config();
+void interr_config();
+void ports_config();
+void comparator_config();
+void serial_config();
+void timer0_config();
+
 void send(char * ptr_array);
 void send_next();
 void received();
@@ -50,16 +57,12 @@ void clean (char * ptr);
 //*************************************************
 void main(void)
 {
-	OSCCONbits.IRCF = 7; // Internal Oscillator Frequency (8 MHz)
+    int delay = 30000;
     
-	RCONbits.IPEN = 1; // Interrupt priority enable
-	INTCONbits.PEIE = 1; // Enable low priority interrupts
-	INTCONbits.GIE = 1; // Enable high priority interrupts
-    
-	// Ports configuration --------------
-	TRISAbits.TRISA0 = 0; // Output
-	LED1 = 0; // Initialize in 0
-
+    clock_config();
+    interr_config();
+    ports_config();
+    comparator_config();
 	serial_config();
     
     /*
@@ -74,12 +77,24 @@ void main(void)
 
 	while(1) 
     {
-        LED1 = 1;
+        LED2 = 1;
+        for(int i=0; i<delay; i++){}
+        
+        while(!rx_finish) {}
         
         if(rx_finish)
         {
             rx_finish = 0;
             send(rx_data);
+        }
+        
+        while(!tx_finish) {}
+        
+        if(tx_finish)
+        {
+           LED2 = 0;
+            for(int i=0; i<delay; i++){}
+            SLEEP(); 
         }
     }
     
@@ -90,7 +105,7 @@ void main(void)
 // Functions' definition
 //*************************************************
 
-void interrupt high_priority isr_high(void) // Interrupt service routine high priority
+void interrupt high_priority isr_high (void) // Interrupt service routine high priority
 {
 	if (INTCONbits.TMR0IF && INTCONbits.TMR0IE) // Timer0 interruption
 	{
@@ -104,7 +119,7 @@ void interrupt high_priority isr_high(void) // Interrupt service routine high pr
     	send_next();
 	}
     
-	if (PIR1bits.RCIF && PIE1bits.RCIE) // Transmission interruption
+	if (PIR1bits.RCIF && PIE1bits.RCIE) // Reception interruption
 	{
         PIR1bits.RCIF = 0;
         rx_char = RCREG;
@@ -120,9 +135,60 @@ void interrupt high_priority isr_high(void) // Interrupt service routine high pr
         }
 
 	}
+    
+    if (PIE2bits.CMIE && PIR2bits.CMIF) // Comparator interruption
+	{
+    	PIR2bits.CMIF = 0;
+    	LED1 = C1OUT;
+    }
 }
 
-void init_timer0 (void)
+void clock_config ()
+{
+    OSCCONbits.IRCF = 7; // Internal Oscillator Frequency (8 MHz)
+}
+
+void interr_config ()
+{
+    RCONbits.IPEN = 1; // Interrupt priority enable
+    INTCONbits.PEIE = 1; // Enable low priority interrupts
+    INTCONbits.GIE = 1; // Enable high priority interrupts
+}
+
+void ports_config()
+{
+    TRISBbits.TRISB0 = 0; // Output
+    TRISBbits.TRISB1 = 0; // Output
+    
+    LED1 = 0; // Initialize in 0
+    LED2 = 0; // Initialize in 0
+}
+
+void comparator_config ()
+{
+    // 4 inputs multiplexed to 2 comparators (CM2:CM0 = 110)
+    CMCONbits.CM2 = 1;
+    CMCONbits.CM1 = 1;
+    CMCONbits.CM0 = 0;
+    //-----------------------
+
+    // For CVref = 2.5V (CVR3:CVR0 = 1100 = 12)
+    CVRCONbits.CVR3 = 1;
+    CVRCONbits.CVR2 = 1;
+    CVRCONbits.CVR1 = 0;
+    CVRCONbits.CVR0 = 0;
+    //-----------------------
+    
+    CMCONbits.CIS = 0; // C1 Vin- connects to RA0; C2 Vin- to RA1
+    PIE2bits.CMIE = 1; // Enables comparator interrupts
+
+    CVRCONbits.CVREN = 1; // Comparator Voltage Reference enabled
+    CVRCONbits.CVRR = 1; // Comparator Vref range selection (low range)
+    CVRCONbits.CVRSS = 0; // Comparator ref source CVrsrc = Vdd - Vss
+
+    CVRCONbits.CVROE = 1; // CVref voltage is also output on the RA2 pin
+}
+void timer0_config ()
 {
 	T0CONbits.T08BIT = 0; // 16 bits
 	T0CONbits.T0CS = 0; // Internal instruction cycle clock (8 MHz)
@@ -163,7 +229,6 @@ void serial_config ()
 
 void send (char * ptr_array)
 {
-    clean(ptr_tx);
     ptr_tx = ptr_array;
 	tx_finish = 0; // End of transmission flag
 	PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
@@ -196,5 +261,6 @@ void clean (char * ptr)
     for (int i=0; i<sizeof(*ptr); i++)
     {
         *ptr = '\0';
+        ptr ++;
     }
 }
