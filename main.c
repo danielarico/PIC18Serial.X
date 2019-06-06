@@ -1,4 +1,3 @@
-
 /*
  * File:   main.c
  * Author: daniela
@@ -17,6 +16,7 @@
 //*************************************************
 #define LED1 LATBbits.LATB0
 #define LED2 LATBbits.LATB1
+#define interr LATBbits.LATB2
 
 //*************************************************
 // Global variables declaration
@@ -27,12 +27,13 @@ bool rx_finish = false;
 const uint16_t timer0_start = 3036; // For prescaler 1:16
 const uint8_t array_size = 20;
 //const uint8_t buffer_size = 50;
-char rx_buffer[array_size];
+char rx_buffer[array_size] = {};
 char rx_char = '\0';
-char rx_data = '\0';
+char rx_data[array_size] = {};
 char * ptr_rx = rx_buffer;
 char * ptr_tx;
 
+int delay = 30000;
 
 //*************************************************
 // Functions' declaration
@@ -51,53 +52,45 @@ void send(char * ptr_array);
 void send_next();
 void received();
 void clean (char * ptr);
+void pulse();
+void read();
 
 //*************************************************
 // Main
 //*************************************************
 void main(void)
 {
-    int delay = 30000;
-    
     clock_config();
     interr_config();
     ports_config();
     comparator_config();
 	serial_config();
     
-    /*
-	char data [array_size] = "HOLA MUNDO";
-	char arr [array_size] = "HELLO WORLD";
+	char data [array_size] = "HOLA MUNDO\n";
     
-	send(data);
-	while(!tx_finish) {}
-	send(arr);
-	while(!tx_finish) {}
-    */
-
-	while(1) 
+    while(1)
     {
         LED2 = 1;
-        for(int i=0; i<delay; i++){}
+        for(int i=0; i<delay; i++) {}
         
+        //read();
+        ptr_rx = rx_buffer; // Re-initialize pointer
+        rx_finish = false; // End of reception flag
         while(!rx_finish) {}
         
-        if(rx_finish)
-        {
-            rx_finish = 0;
-            send(rx_data);
-        }
+        LED2 = 0;
+        for(int i=0; i<delay; i++) {}
+        LED2 = 1;
+        for(int i=0; i<delay; i++) {}
+        
+        send(rx_buffer);
         
         while(!tx_finish) {}
-        
-        if(tx_finish)
-        {
-           LED2 = 0;
-            for(int i=0; i<delay; i++){}
-            SLEEP(); 
-        }
+
+        LED2 = 0;
+        for(int i=0; i<delay; i++) {}
+        //SLEEP();
     }
-    
 	return;
 }
 
@@ -121,25 +114,23 @@ void interrupt high_priority isr_high (void) // Interrupt service routine high p
     
 	if (PIR1bits.RCIF && PIE1bits.RCIE) // Reception interruption
 	{
-        PIR1bits.RCIF = 0;
         rx_char = RCREG;
-        
-        if(rx_char != '\0')
-        {
-            *ptr_rx = rx_char;
-            ptr_rx ++;
-        }
-        else
+        if(rx_char == '\0') return;
+        *ptr_rx = rx_char;
+        ptr_rx ++;
+        rx_finish = false;
+
+        if(rx_char == '\n')
         {
             received();
         }
-
 	}
     
     if (PIE2bits.CMIE && PIR2bits.CMIF) // Comparator interruption
 	{
-    	PIR2bits.CMIF = 0;
+        PIR2bits.CMIF = 0;
     	LED1 = C1OUT;
+        //pulse();
     }
 }
 
@@ -157,11 +148,11 @@ void interr_config ()
 
 void ports_config()
 {
-    TRISBbits.TRISB0 = 0; // Output
-    TRISBbits.TRISB1 = 0; // Output
+    TRISB = 0; // Output
     
     LED1 = 0; // Initialize in 0
     LED2 = 0; // Initialize in 0
+    interr = 0;
 }
 
 void comparator_config ()
@@ -217,7 +208,7 @@ void serial_config ()
 	BAUDCONbits.TXCKP = 0; // TX Data is inverted
 	PIE1bits.TXIE = 0; // Disables EUSART Transmit Interrupt
 	TXSTAbits.TX9 = 0; // Selects 8-bit transmission
-	TXSTAbits.TXEN = 1; // Transmit enabled
+	TXSTAbits.TXEN = 1; // Transmit disabled
 	IPR1bits.TXIP = 1; // High priority
     
 	// Reception -------------
@@ -230,7 +221,7 @@ void serial_config ()
 void send (char * ptr_array)
 {
     ptr_tx = ptr_array;
-	tx_finish = 0; // End of transmission flag
+	tx_finish = false; // End of transmission flag
 	PIE1bits.TXIE = 1; // Enables EUSART Transmit Interrupt
 }
 
@@ -238,7 +229,7 @@ void send_next()
 {  
 	if(*ptr_tx == '\0')
 	{
-    	tx_finish = 1;
+    	tx_finish = true;
     	PIE1bits.TXIE = 0; // Disables EUSART Transmit Interrupt when find null char
 	}
 	else
@@ -248,19 +239,33 @@ void send_next()
 	}
 }
 
+void read()
+{
+    ptr_rx = rx_buffer; // Re-initialize pointer
+    rx_finish = false; // End of reception flag
+    clean(rx_buffer);
+}
+
 void received ()
 {
-    rx_finish = 1; // End of reception flag
-    strcpy(rx_data, rx_buffer);
+    rx_finish = true; // End of reception flag
+    //strcpy(rx_data, rx_buffer);
+    //clean(rx_buffer);
     ptr_rx = rx_buffer; // Re-initialize pointer
-    clean(rx_buffer);
 }
 
 void clean (char * ptr)
 {
-    for (int i=0; i<sizeof(*ptr); i++)
+    for (int i=0; i<sizeof(ptr); i++)
     {
         *ptr = '\0';
         ptr ++;
     }
+}
+
+void pulse()
+{
+    interr = 1;
+    for(int i=0; i<600; i++) {}
+    interr = 0;
 }
