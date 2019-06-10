@@ -1,7 +1,7 @@
 #define interr A0
 #define led A1
 
-const int arr_size = 20;
+const int arr_size = 10;
 char str_rdy [arr_size] = "RDY\n";
 
 

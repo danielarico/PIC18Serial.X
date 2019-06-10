@@ -24,13 +24,16 @@ bool timer0_flag = false;
 bool tx_finish = false;
 bool rx_finish = false;
 
-const uint8_t array_size = 20;
+const uint8_t array_size = 10;
 
 char rx_buffer[array_size] = {};
 char rx_char = '\0';
 char rx_data[array_size] = {};
 char * ptr_rx = rx_buffer;
 char * ptr_tx;
+
+int comparator = 0;
+char sensor_data [array_size];
 
 int delay = 30000;
 
@@ -47,6 +50,7 @@ void clean (char * ptr);
 void read ();
 
 void device_wakeup ();
+void sensor_to_str ();
 
 //*************************************************
 // Main
@@ -61,7 +65,6 @@ void main(void)
     
 	char str_ready [array_size] = "RDY\n";
     char str_again [array_size] = "AGN\n";
-    
     SLEEP();
     
     while(1)
@@ -80,6 +83,7 @@ void main(void)
             LED2 = 1;
             for(int i=0; i<delay; i++) {}
 
+            //sensor_to_str ();
             send(rx_buffer);
             while(!tx_finish) {}
         }
@@ -137,7 +141,8 @@ void interrupt high_priority isr_high (void) // Interrupt service routine high p
     if (PIE2bits.CMIE && PIR2bits.CMIF) // Comparator interruption
 	{
         PIR2bits.CMIF = 0;
-    	LED1 = C1OUT;
+        comparator = C1OUT;
+    	LED1 = comparator;
     }
 }
 
@@ -189,4 +194,18 @@ void device_wakeup()
     interr = 1;
     for(int i=0; i<800; i++) {}
     interr = 0;
+}
+
+void sensor_to_str ()
+{
+    if (comparator == 1)
+    {
+        sensor_data[0]= '1';
+        sensor_data[1]= '\n';
+    }
+    else if (comparator == 0)
+    {
+        sensor_data[0]= '0';
+        sensor_data[1]= '\n';
+    }
 }
