@@ -15,6 +15,8 @@ void setup()
 
 void loop() 
 {
+  int flag = 0;
+  
   if (digitalRead(interr) == HIGH)
   {
     digitalWrite(led, HIGH);
@@ -23,10 +25,16 @@ void loop()
     Serial.write('\n');
 
     while(Serial.available() == 0) {}
-
-    if (Serial.available() > 0)
+    
+    while(Serial.available() && flag == 0)
     {
-      SerialUSB.write(Serial.read());
+      char a = Serial.read();
+      SerialUSB.write(a);
+
+      if (a == '\n')
+      {
+        flag = 1;
+      }
     }
     
     digitalWrite(led, LOW);
