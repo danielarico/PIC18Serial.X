@@ -52,8 +52,9 @@ void send(char * ptr_array);
 void send_next();
 void received();
 void clean (char * ptr);
-void pulse();
-void read();
+void read ();
+
+void device_wakeup ();
 
 //*************************************************
 // Main
@@ -67,17 +68,17 @@ void main(void)
 	serial_config();
     
 	char data [array_size] = "HOLA MUNDO\n";
+    SLEEP();
     
     while(1)
-    {
-        LED2 = 1;
-        for(int i=0; i<delay; i++) {}
+    {  
+        LED2 = 1; // Debug
+        for(int i=0; i<delay; i++) {} // Debug
         
-        //read();
-        ptr_rx = rx_buffer; // Re-initialize pointer
-        rx_finish = false; // End of reception flag
-        while(!rx_finish) {}
+        device_wakeup(); // Wake up signal for LoRa chip
         
+        read();
+
         LED2 = 0;
         for(int i=0; i<delay; i++) {}
         LED2 = 1;
@@ -88,8 +89,9 @@ void main(void)
         while(!tx_finish) {}
 
         LED2 = 0;
-        for(int i=0; i<delay; i++) {}
-        //SLEEP();
+        for(int i=0; i<delay; i++) {} 
+        
+        SLEEP();
     }
 	return;
 }
@@ -130,7 +132,6 @@ void interrupt high_priority isr_high (void) // Interrupt service routine high p
 	{
         PIR2bits.CMIF = 0;
     	LED1 = C1OUT;
-        //pulse();
     }
 }
 
@@ -239,11 +240,11 @@ void send_next()
 	}
 }
 
-void read()
+void read ()
 {
     ptr_rx = rx_buffer; // Re-initialize pointer
     rx_finish = false; // End of reception flag
-    clean(rx_buffer);
+    while(!rx_finish) {}
 }
 
 void received ()
@@ -263,9 +264,10 @@ void clean (char * ptr)
     }
 }
 
-void pulse()
+void device_wakeup()
 {
     interr = 1;
-    for(int i=0; i<600; i++) {}
+    for(int i=0; i<delay; i++) {}
     interr = 0;
+    for(int i=0; i<delay; i++) {}
 }
