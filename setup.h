@@ -44,11 +44,11 @@ void interr_config ()
 
 void ports_config()
 {
-    TRISB = 0; // Output
+    TRISB = 0; // Port B as output
     
     LED1 = 0; // Initialize in 0
     LED2 = 0; // Initialize in 0
-    interr = 0;
+    interr = 0; // Initialize in 0
 }
 
 void comparator_config ()

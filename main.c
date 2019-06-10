@@ -54,12 +54,14 @@ void device_wakeup ();
 void main(void)
 {
     clock_config();
-    interr_config();
     ports_config();
+    interr_config();
     comparator_config();
 	serial_config();
     
-	char data [array_size] = "HOLA MUNDO\n";
+	char str_ready [array_size] = "RDY\n";
+    char str_again [array_size] = "AGN\n";
+    
     SLEEP();
     
     while(1)
@@ -71,14 +73,26 @@ void main(void)
 
         read(); // Waits for '\n' character
         
-        LED2 = 0;
-        for(int i=0; i<delay; i++) {}
-        LED2 = 1;
-        for(int i=0; i<delay; i++) {}
-        
-        send(rx_buffer);
-        
-        while(!tx_finish) {}
+        if (strcmp (rx_buffer, str_ready) == 0)
+        {
+            LED2 = 0;
+            for(int i=0; i<delay; i++) {}
+            LED2 = 1;
+            for(int i=0; i<delay; i++) {}
+
+            send(rx_buffer);
+            while(!tx_finish) {}
+        }
+        else
+        {
+            LED2 = 0;
+            for(int i=0; i<delay; i++) {}
+            LED2 = 1;
+            for(int i=0; i<delay; i++) {}
+
+            send(str_again);
+            while(!tx_finish) {}
+        }
 
         LED2 = 0;
         for(int i=0; i<delay; i++) {} 
