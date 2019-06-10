@@ -1,6 +1,10 @@
 #define interr A0
 #define led A1
 
+const int arr_size = 20;
+char str_rdy [arr_size] = "RDY\n";
+
+
 void setup() 
 {
   SerialUSB.begin(9600);
@@ -21,8 +25,8 @@ void loop()
   {
     digitalWrite(led, HIGH);
     delay(500);
-    Serial.write('e');
-    Serial.write('\n');
+
+    Serial.print(str_rdy);
 
     while(Serial.available() == 0) {}
     

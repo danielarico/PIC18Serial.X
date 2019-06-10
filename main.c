@@ -67,15 +67,10 @@ void main(void)
         LED2 = 1; // Debug
         for(int i=0; i<delay; i++) {} // Debug
           
-        ptr_rx = rx_buffer; // Re-initialize pointer
-        rx_finish = false; // End of reception flag
-        
         device_wakeup(); // Wake up signal for LoRa chip
+
+        read(); // Waits for '\n' character
         
-        //read(); // Waits for '\n' character
-
-        while(!rx_finish) {}
-
         LED2 = 0;
         for(int i=0; i<delay; i++) {}
         LED2 = 1;
